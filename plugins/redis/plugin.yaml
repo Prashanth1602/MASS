@@ -1,0 +1,19 @@
+name: redis
+version: "1.0"
+
+type: container
+
+image:
+  repository: redis
+  tag: "7"
+
+provides:
+  - cache
+  - key_value_store
+
+ports:
+  - "6379:6379"
+
+volumes:
+  - name: redis_data
+    target: /data
