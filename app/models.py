@@ -1,3 +1,5 @@
+from typing import Any
+
 from pydantic import BaseModel
 
 
@@ -7,4 +9,4 @@ class ApplicationConfig(BaseModel):
 
 class BuildRequest(BaseModel):
     application: ApplicationConfig
-    plugins: list[str] 
+    plugins: dict[str, dict[str, Any]]

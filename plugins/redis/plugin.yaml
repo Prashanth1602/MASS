@@ -11,8 +11,11 @@ provides:
   - cache
   - key_value_store
 
-ports:
-  - "6379:6379"
+configuration:
+  port:
+    type: integer
+    required: false
+    default: 6379
 
 volumes:
   - name: redis_data

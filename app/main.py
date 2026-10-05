@@ -3,6 +3,7 @@ from pathlib import Path
 from fastapi import FastAPI
 
 from app.compose_generator import ComposeGenerator
+from app.config_resolver import ConfigResolver
 from app.models import BuildRequest
 from app.plugin_registry import PluginRegistry
 
@@ -16,6 +17,8 @@ registry.load_plugins()
 
 compose_generator = ComposeGenerator()
 
+config_resolver = ConfigResolver()
+
 @app.get("/")
 def root():
     return {
@@ -28,7 +31,7 @@ def build_application(request: BuildRequest):
 
     selected_plugins = []
 
-    for plugin_name in request.plugins:
+    for plugin_name, user_config in request.plugins.items():
 
         plugin = registry.get(plugin_name)
 
@@ -37,7 +40,17 @@ def build_application(request: BuildRequest):
                 "error": f"Plugin '{plugin_name}' not found"
             }
 
-        selected_plugins.append(plugin)
+        try:
+            resolved_config = config_resolver.resolve(plugin, user_config)
+        except ValueError as e:
+            return {
+                "error": str(e)
+            }
+
+        plugin_copy = plugin.copy()
+        plugin_copy["resolved_configuration"] = resolved_config
+
+        selected_plugins.append(plugin_copy)
 
     compose_yaml = compose_generator.generate(
         application_name=request.application.name,

@@ -1,5 +1,14 @@
 import yaml
 
+def resolve_template(value: str, configuration: dict):
+        if not isinstance(value, str):
+            return value
+
+        for key, config_value in configuration.items():
+            placeholder = f"{{{{ {key} }}}}"
+            value = value.replace(placeholder, str(config_value))
+
+        return value
 
 class ComposeGenerator:
 
@@ -19,15 +28,20 @@ class ComposeGenerator:
                 "image": f'{image["repository"]}:{image["tag"]}'
             }
 
-            # Ports
             if "ports" in plugin:
                 service["ports"] = plugin["ports"]
 
-            # Environment variables
             if "environment" in plugin:
-                service["environment"] = plugin["environment"]
 
-            # Volumes
+                configuration = plugin.get("resolved_configuration", {})
+
+                environment = {}
+
+                for key, value in plugin["environment"].items():
+                    environment[key] = resolve_template(value, configuration)
+
+                service["environment"] = environment
+
             if "volumes" in plugin:
 
                 service_volumes = []

@@ -10,13 +10,31 @@ image:
 provides:
   - database
 
-ports:
-  - "5432:5432"
+configuration:
+  database:
+    type: string
+    required: true
+    default: app
+
+  username:
+    type: string
+    required: true
+    default: app
+
+  password:
+    type: string
+    required: true
+    secret: true
+
+  port:
+    type: integer
+    required: false
+    default: 5432
 
 environment:
-  POSTGRES_DB: app
-  POSTGRES_USER: app
-  POSTGRES_PASSWORD: app_password
+  POSTGRES_DB: "{{ database }}"
+  POSTGRES_USER: "{{ username }}"
+  POSTGRES_PASSWORD: "{{ password }}"
 
 volumes:
   - name: postgres_data
