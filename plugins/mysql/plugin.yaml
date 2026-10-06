@@ -1,0 +1,11 @@
+name: mysql
+version: "1.0"
+
+type: container
+
+image:
+  repository: mysql
+  tag: "8"
+
+provides:
+  - database

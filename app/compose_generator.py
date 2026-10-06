@@ -10,6 +10,27 @@ def resolve_template(value: str, configuration: dict):
 
         return value
 
+def resolve_environment_value(value: str, configuration: dict, schema: dict):
+
+    if not isinstance(value, str):
+        return value
+
+    for key, config_value in configuration.items():
+        placeholder = f"{{{{ {key} }}}}"
+
+        if placeholder not in value:
+            continue
+
+        definition = schema.get(key, {})
+
+        if definition.get("secret", False):
+            value = value.replace(placeholder, "${" + key + "}")
+
+        else:
+            value = value.replace(placeholder, str(config_value))
+
+    return value
+
 class ComposeGenerator:
 
     def generate( self, application_name: str, plugins: list[dict]) -> str:
@@ -38,7 +59,7 @@ class ComposeGenerator:
                 environment = {}
 
                 for key, value in plugin["environment"].items():
-                    environment[key] = resolve_template(value, configuration)
+                    environment[key] = resolve_environment_value(value, configuration, plugin.get("configuration", {}))
 
                 service["environment"] = environment
 
@@ -72,3 +93,26 @@ class ComposeGenerator:
             compose,
             sort_keys=False
         )
+
+    def generate_env_file(self, plugins: list[dict]) -> str:
+        lines = []
+
+        for plugin in plugins:
+
+            plugin_name = plugin["name"].upper()
+
+            configuration = plugin.get("resolved_configuration", {})
+
+            schema = plugin.get("configuration", {})
+            
+            for key, value in configuration.items():
+
+                definition = schema.get(key, {})
+
+                if definition.get("secret", False):
+
+                    env_name = f"{plugin_name}_{key.upper()}"
+
+                    lines.append(f"{env_name}={value}")
+
+        return "\n".join(lines) + "\n"

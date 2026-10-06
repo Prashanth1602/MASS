@@ -23,3 +23,15 @@ class ConfigResolver:
                     )
 
         return resolved
+
+    def get_secret_fields(self, plugin: dict, resolved_configuration: dict) -> dict:
+        schema = plugin.get("configuration", {})
+        secrets = {}
+
+        for key, value in resolved_configuration.items():
+            definition = schema.get(key, {})
+
+            if definition.get("secret", False):
+                secrets[key] = value
+
+        return secrets

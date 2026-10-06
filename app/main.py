@@ -2,8 +2,10 @@ from pathlib import Path
 
 from fastapi import FastAPI
 
+from app.code_plugin_generator import CodePluginGenerator
 from app.compose_generator import ComposeGenerator
 from app.config_resolver import ConfigResolver
+from app.dependency_resolver import DependencyResolver
 from app.models import BuildRequest
 from app.plugin_registry import PluginRegistry
 
@@ -18,6 +20,10 @@ registry.load_plugins()
 compose_generator = ComposeGenerator()
 
 config_resolver = ConfigResolver()
+
+dependency_resolver = DependencyResolver()
+
+code_generator = CodePluginGenerator()
 
 @app.get("/")
 def root():
@@ -42,6 +48,7 @@ def build_application(request: BuildRequest):
 
         try:
             resolved_config = config_resolver.resolve(plugin, user_config)
+            secret_config = config_resolver.get_secret_fields(plugin, resolved_config)
         except ValueError as e:
             return {
                 "error": str(e)
@@ -49,7 +56,6 @@ def build_application(request: BuildRequest):
 
         plugin_copy = plugin.copy()
         plugin_copy["resolved_configuration"] = resolved_config
-
         selected_plugins.append(plugin_copy)
 
     compose_yaml = compose_generator.generate(
@@ -57,17 +63,33 @@ def build_application(request: BuildRequest):
         plugins=selected_plugins
     )
 
+    dependencies = dependency_resolver.resolve(selected_plugins)
+
     output_directory = Path("generated") / request.application.name
     output_directory.mkdir(parents=True, exist_ok=True)
+
+    generated_code_files = []
+
+    for plugin in selected_plugins:
+        if plugin["type"] != "code":
+            continue
+
+        files = code_generator.generate(plugin, output_directory)
+        generated_code_files.extend(files)
 
     compose_file = output_directory / "docker-compose.yml"
 
     compose_file.write_text(compose_yaml)
 
+    env_content = compose_generator.generate_env_file(selected_plugins)
+    env_file = output_directory / ".env"
+    env_file.write_text(env_content)
+
     return {
         "message": "Application generated successfully",
         "application": request.application.name,
-        "plugins": request.plugins,
+        "plugins": list(request.plugins.keys()),
+        "dependencies": dependencies,
         "compose_file": str(compose_file)
     }
 

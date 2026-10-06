@@ -1,0 +1,11 @@
+name: authentication
+version: "1.0"
+
+type: code
+
+requires:
+  - database
+  - key_value_store
+
+provides:
+  - authentication
