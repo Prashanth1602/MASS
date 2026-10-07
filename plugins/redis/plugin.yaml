@@ -20,3 +20,11 @@ configuration:
 volumes:
   - name: redis_data
     target: /data
+
+outputs:
+
+  host:
+    value: localhost
+
+  port:
+    value: "{{ port }}"

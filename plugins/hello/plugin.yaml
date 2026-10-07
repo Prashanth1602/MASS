@@ -5,3 +5,9 @@ type: code
 
 provides:
   - greeting
+
+configuration:
+  name:
+    type: string
+    required: true
+    default: World

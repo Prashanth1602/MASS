@@ -6,7 +6,9 @@ from app.code_plugin_generator import CodePluginGenerator
 from app.compose_generator import ComposeGenerator
 from app.config_resolver import ConfigResolver
 from app.dependency_resolver import DependencyResolver
+from app.input_resolver import InputResolver
 from app.models import BuildRequest
+from app.output_resolver import OutputResolver
 from app.plugin_registry import PluginRegistry
 
 app = FastAPI(
@@ -24,6 +26,10 @@ config_resolver = ConfigResolver()
 dependency_resolver = DependencyResolver()
 
 code_generator = CodePluginGenerator()
+
+output_resolver = OutputResolver()
+
+input_resolver = InputResolver()
 
 @app.get("/")
 def root():
@@ -64,6 +70,24 @@ def build_application(request: BuildRequest):
     )
 
     dependencies = dependency_resolver.resolve(selected_plugins)
+
+    for plugin in selected_plugins:
+        resolved_outputs = output_resolver.resolve(plugin)
+        plugin["resolved_outputs"] = resolved_outputs
+
+    resolved_plugin_map = {
+        plugin["name"]: plugin
+        for plugin in selected_plugins
+    }
+
+    for plugin in selected_plugins:
+        resolved_inputs = input_resolver.resolve(
+        plugin,
+        dependencies,
+        resolved_plugin_map
+    )
+
+        plugin["resolved_inputs"] = resolved_inputs
 
     output_directory = Path("generated") / request.application.name
     output_directory.mkdir(parents=True, exist_ok=True)

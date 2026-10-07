@@ -39,3 +39,20 @@ environment:
 volumes:
   - name: postgres_data
     target: /var/lib/postgresql/data
+
+outputs:
+  host:
+    value: localhost
+
+  port:
+    value: "{{ port }}"
+
+  database:
+    value: "{{ database }}"
+
+  username:
+    value: "{{ username }}"
+
+  password:
+    value: "{{ password }}"
+    secret: true

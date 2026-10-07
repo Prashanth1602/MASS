@@ -9,3 +9,26 @@ requires:
 
 provides:
   - authentication
+
+inputs:
+
+  database_host:
+    from: database.host
+
+  database_port:
+    from: database.port
+
+  database_name:
+    from: database.database
+
+  database_username:
+    from: database.username
+
+  database_password:
+    from: database.password
+
+  redis_host:
+    from: key_value_store.host
+
+  redis_port:
+    from: key_value_store.port

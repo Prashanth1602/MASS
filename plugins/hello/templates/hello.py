@@ -1,2 +1,2 @@
 def hello():
-    return "Hello from generated plugin!"
+    return "Hello, {{ name }}!"
