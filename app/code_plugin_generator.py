@@ -34,9 +34,14 @@ class CodePluginGenerator:
 
             relative_path = (template_file.relative_to(templates_directory))
 
-            output_file = (output_directory / plugin["name"] / relative_path)
+            output_file = (output_directory / "app" / plugin["name"] / relative_path)
 
             output_file.parent.mkdir(parents=True,exist_ok=True)
+            
+            init_file = output_directory / "app" / plugin["name"] / "__init__.py"
+            if not init_file.exists():
+                init_file.touch()
+                generated_files.append(str(init_file))
 
             content = template_file.read_text()
 

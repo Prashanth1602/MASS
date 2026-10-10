@@ -56,8 +56,7 @@ class TemplateRenderer:
 
             if definition.get("secret", False):
 
-                # For now we use the input name.
-                env_name = key.upper()
+                env_name = definition.get("secret_name", key.upper())
 
                 replacement = (
                     'os.getenv("'

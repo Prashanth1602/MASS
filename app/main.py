@@ -2,6 +2,7 @@ from pathlib import Path
 
 from fastapi import FastAPI
 
+from app.application_generator import ApplicationGenerator
 from app.code_plugin_generator import CodePluginGenerator
 from app.compose_generator import ComposeGenerator
 from app.config_resolver import ConfigResolver
@@ -10,6 +11,7 @@ from app.input_resolver import InputResolver
 from app.models import BuildRequest
 from app.output_resolver import OutputResolver
 from app.plugin_registry import PluginRegistry
+from app.runtime_dependency_resolver import RuntimeDependencyResolver
 
 app = FastAPI(
     title="MASS - Modular Application Service Stack",
@@ -30,6 +32,10 @@ code_generator = CodePluginGenerator()
 output_resolver = OutputResolver()
 
 input_resolver = InputResolver()
+
+application_generator = ApplicationGenerator()
+
+runtime_dependency_resolver = RuntimeDependencyResolver()
 
 @app.get("/")
 def root():
@@ -64,10 +70,7 @@ def build_application(request: BuildRequest):
         plugin_copy["resolved_configuration"] = resolved_config
         selected_plugins.append(plugin_copy)
 
-    compose_yaml = compose_generator.generate(
-        application_name=request.application.name,
-        plugins=selected_plugins
-    )
+    
 
     dependencies = dependency_resolver.resolve(selected_plugins)
 
@@ -101,20 +104,41 @@ def build_application(request: BuildRequest):
         files = code_generator.generate(plugin, output_directory)
         generated_code_files.extend(files)
 
-    compose_file = output_directory / "docker-compose.yml"
-
-    compose_file.write_text(compose_yaml)
-
     env_content = compose_generator.generate_env_file(selected_plugins)
     env_file = output_directory / ".env"
     env_file.write_text(env_content)
+    env_file.chmod(0o600)
+
+    gitignore_file = output_directory / ".gitignore"
+    gitignore_file.write_text(".env\n__pycache__/\n*.pyc\n")
+
+    application_generator.generate(
+        request.application.name,
+        output_directory,
+        selected_plugins
+    )
+
+    runtime_dependencies = runtime_dependency_resolver.resolve(
+        dependencies,
+        selected_plugins
+    )
+
+    compose_content = compose_generator.generate(
+        request.application.name,
+        selected_plugins,
+        runtime_dependencies
+    )
+
+    compose_file = output_directory / "docker-compose.yml"
+    compose_file.write_text(compose_content)
+
 
     return {
         "message": "Application generated successfully",
         "application": request.application.name,
         "plugins": list(request.plugins.keys()),
         "dependencies": dependencies,
-        "compose_file": str(compose_file)
+        "compose_file": str(compose_file) 
     }
 
 @app.get("/plugins")

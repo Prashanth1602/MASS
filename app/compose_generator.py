@@ -1,3 +1,4 @@
+from fastapi import dependencies
 import yaml
 
 def resolve_template(value: str, configuration: dict):
@@ -10,7 +11,7 @@ def resolve_template(value: str, configuration: dict):
 
         return value
 
-def resolve_environment_value(value: str, configuration: dict, schema: dict):
+def resolve_environment_value(value: str, configuration: dict, schema: dict, plugin_name: str):
 
     if not isinstance(value, str):
         return value
@@ -24,7 +25,8 @@ def resolve_environment_value(value: str, configuration: dict, schema: dict):
         definition = schema.get(key, {})
 
         if definition.get("secret", False):
-            value = value.replace(placeholder, "${" + key + "}")
+            env_name = f"{plugin_name.upper()}_{key.upper()}"
+            value = value.replace(placeholder, "${" + env_name + "}")
 
         else:
             value = value.replace(placeholder, str(config_value))
@@ -33,14 +35,14 @@ def resolve_environment_value(value: str, configuration: dict, schema: dict):
 
 class ComposeGenerator:
 
-    def generate( self, application_name: str, plugins: list[dict]) -> str:
+    def generate( self, application_name: str, plugins: list[dict], runtime_dependencies: dict) -> str:
 
         services = {}
         volumes = {}
 
         for plugin in plugins:
 
-            if plugin["type"] != "container":
+            if plugin["type"] != "container": 
                 continue
 
             image = plugin["image"]
@@ -59,7 +61,7 @@ class ComposeGenerator:
                 environment = {}
 
                 for key, value in plugin["environment"].items():
-                    environment[key] = resolve_environment_value(value, configuration, plugin.get("configuration", {}))
+                    environment[key] = resolve_environment_value(value, configuration, plugin.get("configuration", {}), plugin["name"])
 
                 service["environment"] = environment
 
@@ -89,6 +91,10 @@ class ComposeGenerator:
         if volumes:
             compose["volumes"] = volumes
 
+        app_dependencies = sorted({ dependency for dependencies in runtime_dependencies.values() for dependency in dependencies})
+
+        services["app"] = self.build_application_service(app_dependencies)
+
         return yaml.safe_dump(
             compose,
             sort_keys=False
@@ -116,3 +122,16 @@ class ComposeGenerator:
                     lines.append(f"{env_name}={value}")
 
         return "\n".join(lines) + "\n"
+
+    
+    def build_application_service(self, dependencies: list[str]) -> dict:
+        service = {
+            "build": ".",
+            "ports": ["8000:8000"],
+            "env_file": [".env"],
+        }
+
+        if dependencies:
+            service["depends_on"] = dependencies
+
+        return service

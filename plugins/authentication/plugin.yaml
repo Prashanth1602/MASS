@@ -32,3 +32,7 @@ inputs:
 
   redis_port:
     from: key_value_store.port
+
+runtime_dependencies:
+  - "psycopg[binary]"
+  - redis

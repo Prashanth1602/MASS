@@ -38,7 +38,7 @@ environment:
 
 volumes:
   - name: postgres_data
-    target: /var/lib/postgresql/data
+    target: /var/lib/postgresql
 
 outputs:
   host:

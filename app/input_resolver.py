@@ -35,5 +35,7 @@ class InputResolver:
                             "value": output["value"],
                             "secret": output.get("secret", False)
                         }
+            if output.get("secret"):
+                resolved_inputs[input_name]["secret_name"] = output.get("secret_name")
 
         return resolved_inputs
