@@ -1,3 +1,4 @@
+
 name: mysql
 version: "1.0"
 
@@ -9,3 +10,56 @@ image:
 
 provides:
   - database
+
+configuration:
+  database:
+    type: string
+    required: true
+    default: app
+
+  username:
+    type: string
+    required: true
+    default: app
+
+  password:
+    type: string
+    required: true
+    secret: true
+
+  root_password:
+    type: string
+    required: true
+    secret: true
+
+  port:
+    type: integer
+    required: false
+    default: 3306
+
+environment:
+  MYSQL_DATABASE: "{{ database }}"
+  MYSQL_USER: "{{ username }}"
+  MYSQL_PASSWORD: "{{ password }}"
+  MYSQL_ROOT_PASSWORD: "{{ root_password }}"
+
+volumes:
+  - name: mysql_data
+    target: /var/lib/mysql
+
+outputs:
+  host:
+    value: localhost
+
+  port:
+    value: "{{ port }}"
+
+  database:
+    value: "{{ database }}"
+
+  username:
+    value: "{{ username }}"
+
+  password:
+    value: "{{ password }}"
+    secret: true

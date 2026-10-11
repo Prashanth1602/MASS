@@ -3,3 +3,4 @@ __pycache__/
 *.pyc
 generated/
 .env
+.pytest_cache/
