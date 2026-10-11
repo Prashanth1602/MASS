@@ -1,2 +1,2 @@
-def hello():
-    return "Hello, {{ name }}!"
+def greet():
+    return "Hello, " + {{ name }} + "!"

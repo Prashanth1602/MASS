@@ -1,8 +1,12 @@
+import shutil
+import tempfile
+
 from pathlib import Path
 
-from fastapi import FastAPI
+from fastapi import FastAPI, HTTPException
 
 from app.application_generator import ApplicationGenerator
+from app.build_lock import application_build_lock
 from app.code_plugin_generator import CodePluginGenerator
 from app.compose_generator import ComposeGenerator
 from app.config_resolver import ConfigResolver
@@ -13,6 +17,11 @@ from app.output_resolver import OutputResolver
 from app.plugin_contract_validator import PluginContractValidator
 from app.plugin_registry import PluginRegistry
 from app.runtime_dependency_resolver import RuntimeDependencyResolver
+
+import logging
+
+logging.basicConfig(level=logging.INFO)
+logger = logging.getLogger("mass")
 
 app = FastAPI(
     title="MASS - Modular Application Service Stack",
@@ -57,17 +66,19 @@ def build_application(request: BuildRequest):
         plugin = registry.get(plugin_name)
 
         if plugin is None:
-            return {
-                "error": f"Plugin '{plugin_name}' not found"
-            }
+                raise HTTPException(
+                status_code=404,
+                detail=f"Plugin '{plugin_name}' not found",
+        )
 
         try:
             resolved_config = config_resolver.resolve(plugin, user_config)
             secret_config = config_resolver.get_secret_fields(plugin, resolved_config)
         except ValueError as e:
-            return {
-                "error": str(e)
-            }
+            raise HTTPException(
+            status_code=400,
+            detail=str(e),
+        ) from e
 
         plugin_copy = plugin.copy()
         plugin_copy["resolved_configuration"] = resolved_config
@@ -77,7 +88,10 @@ def build_application(request: BuildRequest):
         dependencies = dependency_resolver.resolve(selected_plugins)
         plugin_contract_validator.validate(selected_plugins, dependencies)
     except ValueError as e:
-        return {"error": str(e)}
+        raise HTTPException(
+            status_code=400,
+            detail=str(e)
+        ) from e
 
     for plugin in selected_plugins:
         resolved_outputs = output_resolver.resolve(plugin)
@@ -97,54 +111,90 @@ def build_application(request: BuildRequest):
 
         plugin["resolved_inputs"] = resolved_inputs
 
-    output_directory = Path("generated") / request.application.name
-    output_directory.mkdir(parents=True, exist_ok=True)
+    
+    generated_root = Path("generated")
+    generated_root.mkdir(parents=True, exist_ok=True)
 
-    generated_code_files = []
+    application_name = request.application.name
+    output_directory = generated_root / application_name
 
-    for plugin in selected_plugins:
-        if plugin["type"] != "code":
-            continue
+    with application_build_lock(generated_root, application_name):
+        if output_directory.exists():
+            raise HTTPException(
+                status_code=409,
+                detail=(
+                    f"Application '{application_name}' already exists. "
+                    "Choose a different name."
+                ),
+            )
 
-        files = code_generator.generate(plugin, output_directory)
-        generated_code_files.extend(files)
+        staging_directory = Path(
+            tempfile.mkdtemp(
+                prefix=f".{application_name}.staging-",
+                dir=generated_root,
+            )
+        )
 
-    env_content = compose_generator.generate_env_file(selected_plugins)
-    env_file = output_directory / ".env"
-    env_file.write_text(env_content)
-    env_file.chmod(0o600)
+        try:
+            for plugin in selected_plugins:
+                if plugin["type"] == "code":
+                    code_generator.generate(
+                        plugin,
+                        staging_directory,
+                    )
 
-    gitignore_file = output_directory / ".gitignore"
-    gitignore_file.write_text(".env\n__pycache__/\n*.pyc\n")
+            env_content = compose_generator.generate_env_file(selected_plugins)
+            env_file = staging_directory / ".env"
+            env_file.write_text(env_content)
+            env_file.chmod(0o600)
 
-    application_generator.generate(
-        request.application.name,
-        output_directory,
-        selected_plugins
-    )
+            (staging_directory / ".gitignore").write_text(
+                ".env\n__pycache__/\n*.pyc\n"
+            )
 
-    runtime_dependencies = runtime_dependency_resolver.resolve(
-        dependencies,
-        selected_plugins
-    )
+            application_generator.generate(
+                application_name,
+                staging_directory,
+                selected_plugins,
+            )
 
-    compose_content = compose_generator.generate(
-        request.application.name,
-        selected_plugins,
-        runtime_dependencies
-    )
+            runtime_dependencies = runtime_dependency_resolver.resolve(dependencies, selected_plugins)
 
-    compose_file = output_directory / "docker-compose.yml"
-    compose_file.write_text(compose_content)
+            compose_content = compose_generator.generate(application_name, selected_plugins, runtime_dependencies)
 
+            (staging_directory / "docker-compose.yml"
+            ).write_text(compose_content)
 
-    return {
-        "message": "Application generated successfully",
-        "application": request.application.name,
-        "plugins": list(request.plugins.keys()),
-        "dependencies": dependencies,
-        "compose_file": str(compose_file) 
-    }
+            staging_directory.rename(output_directory)
+
+        except HTTPException:
+            shutil.rmtree(staging_directory, ignore_errors=True)
+            raise
+
+        except Exception:
+            logger.exception(
+                    "Application generation failed for '%s'",
+                    application_name,
+            )
+
+            shutil.rmtree(staging_directory, ignore_errors=True)
+            raise HTTPException(
+                    status_code=500,
+                    detail=(
+                        "Application generation failed. "
+                        "No new application was published."
+                    ),
+                ) from None
+
+        return {
+            "message": "Application generated successfully",
+            "application": application_name,
+            "plugins": list(request.plugins.keys()),
+            "dependencies": dependencies,
+            "compose_file": str(
+                output_directory / "docker-compose.yml"
+            ),
+        }
 
 @app.get("/plugins")
 def list_plugins():
@@ -157,8 +207,9 @@ def get_plugin(plugin_name: str):
     plugin = registry.get(plugin_name)
 
     if plugin is None:
-        return {
-            "error": "Plugin not found"
-        }
+        raise HTTPException(
+            status_code=404,
+            detail=f"Plugin '{plugin_name}' not found"
+        )
 
     return plugin

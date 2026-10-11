@@ -47,7 +47,13 @@ class CodePluginGenerator:
 
             inputs = plugin.get("resolved_inputs", {})
 
-            content = self.renderer.render(content, configuration, schema, inputs)
+            content = self.renderer.render(
+                        content=content,
+                        configuration=configuration,
+                        schema=schema,
+                        inputs=inputs,
+                        plugin_name=plugin["name"],
+                )
 
             output_file.write_text(content)
 

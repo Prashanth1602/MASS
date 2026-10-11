@@ -1,5 +1,9 @@
 from pathlib import Path
 import shutil
+from urllib import response
+
+from concurrent.futures import ThreadPoolExecutor
+from threading import Event
 
 import pytest
 from fastapi.testclient import TestClient
@@ -81,9 +85,9 @@ def test_build_rejects_unknown_plugin():
 
     response = client.post("/build", json=payload)
 
-    assert response.status_code == 200
-    assert "error" in response.json()
-    assert "not found" in response.json()["error"].lower()
+    assert response.status_code == 404
+    assert "detail" in response.json()
+    assert "not found" in response.json()["detail"].lower()
 
 
 def test_build_rejects_invalid_plugin_configuration():
@@ -98,8 +102,8 @@ def test_build_rejects_invalid_plugin_configuration():
 
     response = client.post("/build", json=payload)
 
-    assert response.status_code == 200
-    assert "error" in response.json()
+    assert response.status_code == 400
+    assert "detail" in response.json()
 
 
 def test_build_does_not_expose_secret(generated_output):
@@ -116,9 +120,9 @@ def test_build_does_not_expose_secret(generated_output):
     config_content = (
         generated_output / "app" / "authentication" / "config.py"
     ).read_text()
-
+ 
     assert TEST_SECRET not in config_content
-    assert 'os.getenv("POSTGRES_PASSWORD")' in config_content
+    assert "os.getenv('POSTGRES_PASSWORD')" in config_content 
 
     compose_content = (
         generated_output / "docker-compose.yml"
@@ -157,10 +161,175 @@ def test_build_rejects_provider_missing_required_output():
 
         response = client.post("/build", json=payload)
 
-        assert response.status_code == 200
-        assert "error" in response.json()
-        assert "does not declare output 'password'" in response.json()["error"]
+        assert response.status_code == 400
+        assert "does not declare output 'password'" in response.json()["detail"]
 
     finally:
         postgres["outputs"] = original_outputs
+
+
+def test_build_rejects_invalid_configuration_type(generated_output):
+    payload = valid_payload()
+    payload["plugins"]["postgres"]["port"] = "not-a-port"
+
+    response = client.post("/build", json=payload)
+
+    assert response.status_code == 400
+    assert "expected integer" in response.json()["detail"]
+    assert not generated_output.exists()
+
+
+def test_build_rejects_existing_application(generated_output):
+    response = client.post("/build", json=valid_payload())
+
+    assert response.status_code == 200
+    assert response.json()["message"] == "Application generated successfully"
+
+    original_main = (
+        generated_output / "app" / "main.py"
+    ).read_text()
+
+    second_response = client.post("/build", json=valid_payload())
+
+    assert second_response.status_code == 409
+    assert "already exists" in second_response.json()["detail"]
+
+    assert (
+        generated_output / "app" / "main.py"
+    ).read_text() == original_main
+
+
+def test_build_cleans_staging_directory_after_failure(
+    generated_output,
+    monkeypatch,
+):
+    def fail_generation(*args, **kwargs):
+        raise RuntimeError("Simulated generation failure")
+
+    monkeypatch.setattr(
+        app_module.code_generator,
+        "generate",
+        fail_generation,
+    )
+
+    response = client.post("/build", json=valid_payload())
+
+    assert response.status_code == 500
+    assert "generation failed" in response.json()["detail"].lower()
+    assert not generated_output.exists()
+
+    staging_directories = list(
+        generated_output.parent.glob(
+            f".{TEST_APP_NAME}.staging-*"
+        )
+    )
+    assert staging_directories == []
+
+
+
+def test_concurrent_build_for_same_name_returns_conflict(generated_output, monkeypatch):
+    entered_generation = Event()
+    release_generation = Event()
+
+    original_generate = app_module.code_generator.generate
+
+    def slow_generate(plugin, output_directory):
+        entered_generation.set()
+
+        if not release_generation.wait(timeout=10):
+            raise RuntimeError("Timed out waiting to release generation")
+
+        return original_generate(plugin, output_directory)
+
+    monkeypatch.setattr(app_module.code_generator, "generate", slow_generate)
+
+    with ThreadPoolExecutor(max_workers=2) as executor:
+        first_future = executor.submit(
+            client.post,
+            "/build",
+            json=valid_payload(),
+        )
+
+        try:
+            assert entered_generation.wait(timeout=5), ("First build did not reach code generation")
+
+            second_response = client.post(
+                "/build",
+                json=valid_payload(),
+            )
+
+            assert second_response.status_code == 409
+            assert "already in progress" in (
+                second_response.json()["detail"].lower()
+            )
+
+        finally:
+            release_generation.set()
+
+        first_response = first_future.result(timeout=15)
+
+    assert first_response.status_code == 200
+    assert first_response.json()["message"] == ("Application generated successfully")
+    assert generated_output.is_dir()
+    assert (generated_output / "docker-compose.yml").is_file()
+
+
+def test_build_releases_lock_after_generation_failure(generated_output,monkeypatch):
+    original_generate = app_module.code_generator.generate
+
+    def fail_generation(*args, **kwargs):
+        raise RuntimeError("Simulated generation failure")
+
+    monkeypatch.setattr(app_module.code_generator, "generate", fail_generation)
+
+    failed_response = client.post(
+        "/build",
+        json=valid_payload(),
+    )
+
+    assert failed_response.status_code == 500
+    assert not generated_output.exists()
+
+    monkeypatch.setattr(app_module.code_generator, "generate", original_generate)
+
+    retry_response = client.post(
+        "/build",
+        json=valid_payload(),
+    )
+
+    assert retry_response.status_code == 200
+    assert (retry_response.json()["message"] == "Application generated successfully")
+    assert generated_output.is_dir()
+    assert (generated_output / "docker-compose.yml").is_file()
+
+
+def test_build_logs_internal_error_without_exposing_it(generated_output, monkeypatch, caplog):
+    import logging
+
+    def fail_generation(*args, **kwargs):
+        raise RuntimeError("internal-sensitive-debug-detail")
+
+    monkeypatch.setattr(
+        app_module.code_generator,
+        "generate",
+        fail_generation,
+    )
+
+    with caplog.at_level(logging.ERROR, logger="mass"):
+        response = client.post(
+            "/build",
+            json=valid_payload(),
+        )
+
+    assert response.status_code == 500
+    assert "internal-sensitive-debug-detail" not in response.text
+    assert "internal-sensitive-debug-detail" in caplog.text
+    assert "Application generation failed" in caplog.text
+    assert not generated_output.exists()
+
+
+
+
+
+
 
