@@ -10,6 +10,7 @@ from app.dependency_resolver import DependencyResolver
 from app.input_resolver import InputResolver
 from app.models import BuildRequest
 from app.output_resolver import OutputResolver
+from app.plugin_contract_validator import PluginContractValidator
 from app.plugin_registry import PluginRegistry
 from app.runtime_dependency_resolver import RuntimeDependencyResolver
 
@@ -36,6 +37,8 @@ input_resolver = InputResolver()
 application_generator = ApplicationGenerator()
 
 runtime_dependency_resolver = RuntimeDependencyResolver()
+
+plugin_contract_validator = PluginContractValidator()
 
 @app.get("/")
 def root():
@@ -70,9 +73,11 @@ def build_application(request: BuildRequest):
         plugin_copy["resolved_configuration"] = resolved_config
         selected_plugins.append(plugin_copy)
 
-    
-
-    dependencies = dependency_resolver.resolve(selected_plugins)
+    try:
+        dependencies = dependency_resolver.resolve(selected_plugins)
+        plugin_contract_validator.validate(selected_plugins, dependencies)
+    except ValueError as e:
+        return {"error": str(e)}
 
     for plugin in selected_plugins:
         resolved_outputs = output_resolver.resolve(plugin)

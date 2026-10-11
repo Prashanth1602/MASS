@@ -4,6 +4,7 @@ import shutil
 import pytest
 from fastapi.testclient import TestClient
 
+from app import main as app_module
 from app.main import app
 
 
@@ -125,3 +126,41 @@ def test_build_does_not_expose_secret(generated_output):
 
     assert "${POSTGRES_PASSWORD}" in compose_content
     assert TEST_SECRET not in compose_content
+
+
+def test_build_rejects_provider_missing_required_output():
+    payload = {
+        "application": {
+            "name": "missing_output_test"
+        },
+        "plugins": {
+            "postgres": {
+                "database": "movie_db",
+                "username": "movie_user",
+                "password": "integration-test-secret",
+            },
+            "redis": {},
+            "authentication": {},
+        },
+    }
+
+    postgres = app_module.registry.get("postgres")
+    assert postgres is not None, "Postgres plugin should be registered"
+    original_outputs = postgres["outputs"]
+
+    try:
+        postgres["outputs"] = {
+            key: value
+            for key, value in original_outputs.items()
+            if key != "password"
+        }
+
+        response = client.post("/build", json=payload)
+
+        assert response.status_code == 200
+        assert "error" in response.json()
+        assert "does not declare output 'password'" in response.json()["error"]
+
+    finally:
+        postgres["outputs"] = original_outputs
+
