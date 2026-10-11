@@ -6,7 +6,7 @@ Instead of writing repetitive boilerplate code to connect databases, caches, and
 
 ---
 
-## 🏗 Simple Architecture Overview
+## Simple Architecture Overview
 
 MASS works like an assembly line with three main stages:
 
@@ -14,8 +14,6 @@ MASS works like an assembly line with three main stages:
 Plugins are the features you want in your app. There are two types:
 * **Container Plugins**: Infrastructure pieces like PostgreSQL or Redis.
 * **Code Plugins**: Application features like Authentication, which generate actual Python code.
-
-Each plugin has a blueprint (`plugin.yaml`) that says what it *provides* (e.g., "I am a database") and what it *requires* (e.g., "I need a database to work").
 
 ### 2. Resolvers (The Brains)
 When you ask MASS to build an app, it sends your request through a series of "Resolvers". These are smart scripts that:
@@ -29,5 +27,8 @@ Once the Resolvers finish the blueprint, the "Generators" do the hard work of bu
 * They create a `docker-compose.yml` file to run your infrastructure.
 * They generate a secure `.env` file to hold your passwords.
 
-## 🎯 The Result
+## The Result
 You get a complete folder inside the `generated/` directory containing a fully wired, production-like FastAPI app that you can instantly start with a single `docker compose up` command.
+
+## Tests
+Application is tested with both Unit and Integration tests.

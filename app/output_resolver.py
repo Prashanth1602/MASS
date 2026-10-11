@@ -14,7 +14,11 @@ class OutputResolver:
             elif isinstance(value, str):
                 for key, config_value in configuration.items():
                     placeholder = "{{ " + key + " }}"
-                    value = value.replace(placeholder, str(config_value))
+
+                    if value == placeholder:
+                        value = config_value
+                    else:
+                        value = value.replace(placeholder, str(config_value))
 
             resolved_outputs[name] = {
                 "value": value,
