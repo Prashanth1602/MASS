@@ -4,3 +4,6 @@ __pycache__/
 generated/
 .env
 .pytest_cache/
+movie-api.yaml
+movie-api-port-test.yaml
+movie-api-envtest.yaml
