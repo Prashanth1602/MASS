@@ -1,7 +1,7 @@
 
 class PluginContractValidator:
 
-    def validate(self, plugins: list[dict], dependencies: dict,) -> None:
+    def validate(self, plugins: list[dict], dependencies: dict) -> None:
         plugin_map = {
             plugin["name"]: plugin
             for plugin in plugins
@@ -60,4 +60,30 @@ class PluginContractValidator:
                         f"'{capability}.{output_name}', but provider "
                         f"'{provider_name}' does not declare output "
                         f"'{output_name}'"
+                    )
+
+                output_definition = provider_outputs[output_name]
+                input_type = definition.get("type")
+                output_type = output_definition.get("type")
+
+                if input_type is None or output_type is None:
+                    raise ValueError(
+                        f"Plugin '{plugin_name}' input '{input_name}' "
+                        f"and provider '{provider_name}' output "
+                        f"'{output_name}' must declare types"
+                    )
+
+                compatible_types = {
+                    "string": {"string"},
+                    "integer": {"integer"},
+                    "number": {"integer", "number"},
+                    "boolean": {"boolean"},
+                }
+
+                if output_type not in compatible_types.get(input_type, set()):
+                    raise ValueError(
+                        f"Type mismatch for plugin '{plugin_name}' "
+                        f"input '{input_name}': expects '{input_type}', "
+                        f"but provider '{provider_name}' output "
+                        f"'{output_name}' declares '{output_type}'"
                     )

@@ -43,3 +43,15 @@ def test_app_service_uses_env_file():
 
     assert service["env_file"] == [".env"]
     assert service["depends_on"] == ["postgres"]
+
+
+def test_application_service_uses_configured_host_port():
+    generator = ComposeGenerator()
+
+    service = generator.build_application_service(
+        dependencies=[],
+        host_port=8001,
+    )
+
+    assert service["ports"] == ["8001:8000"]
+

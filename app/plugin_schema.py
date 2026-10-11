@@ -21,12 +21,12 @@ class ConfigurationField(StrictModel):
 
 class InputDefinition(StrictModel):
     from_: str = Field(alias="from", min_length=1)
-
+    type: Literal["string", "integer", "number", "boolean"]
 
 class OutputDefinition(StrictModel):
+    type: Literal["string", "integer", "number", "boolean"]
     value: Any
     secret: bool = False
-
 
 class VolumeDefinition(StrictModel):
     name: str = Field(min_length=1)
@@ -34,6 +34,7 @@ class VolumeDefinition(StrictModel):
 
 
 class PluginDefinition(StrictModel):
+    api_version: Literal["mass/v1"] = Field(alias="apiVersion")
     name: str = Field(pattern=r"^[a-zA-Z0-9_-]+$")
     version: str = Field(min_length=1)
     type: Literal["container", "code"]
@@ -67,3 +68,5 @@ class PluginDefinition(StrictModel):
             )
 
         return self
+
+

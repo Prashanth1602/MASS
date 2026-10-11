@@ -1,0 +1,13 @@
+
+name: movie-api
+host_port: 8001
+
+plugins:
+  postgres:
+    database: movies
+    username: app
+    password: ${POSTGRES_PASSWORD}
+
+  redis: {}
+
+  authentication: {}

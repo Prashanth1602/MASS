@@ -1,3 +1,4 @@
+apiVersion: mass/v1
 name: authentication
 version: "1.0"
 
@@ -10,28 +11,36 @@ requires:
 provides:
   - authentication
 
-inputs:
 
+inputs:
   database_host:
     from: database.host
+    type: string
 
   database_port:
     from: database.port
+    type: integer
 
   database_name:
     from: database.database
+    type: string
 
   database_username:
     from: database.username
+    type: string
 
   database_password:
     from: database.password
+    type: string
 
   redis_host:
     from: key_value_store.host
+    type: string
 
   redis_port:
     from: key_value_store.port
+    type: integer
+
 
 runtime_dependencies:
   - "psycopg[binary]"

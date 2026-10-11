@@ -160,7 +160,7 @@ def build_application(request: BuildRequest):
 
             runtime_dependencies = runtime_dependency_resolver.resolve(dependencies, selected_plugins)
 
-            compose_content = compose_generator.generate(application_name, selected_plugins, runtime_dependencies)
+            compose_content = compose_generator.generate(application_name, selected_plugins, runtime_dependencies, host_port=request.application.host_port)
 
             (staging_directory / "docker-compose.yml"
             ).write_text(compose_content)

@@ -110,3 +110,25 @@ def test_rejects_invalid_default(resolver):
 
     with pytest.raises(ValueError, match="expected integer"):
         resolver.resolve(invalid_plugin, {})
+
+
+import pytest
+from pydantic import ValidationError
+
+from app.models import ApplicationConfig
+
+
+def test_application_config_defaults_to_port_8000():
+    config = ApplicationConfig(name="movie-api")
+
+    assert config.host_port == 8000
+
+
+@pytest.mark.parametrize("port", [0, 65536, -1])
+def test_application_config_rejects_invalid_host_port(port):
+    with pytest.raises(ValidationError):
+        ApplicationConfig(
+            name="movie-api",
+            host_port=port,
+        )
+

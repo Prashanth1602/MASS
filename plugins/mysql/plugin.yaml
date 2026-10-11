@@ -1,4 +1,4 @@
-
+apiVersion: mass/v1
 name: mysql
 version: "1.0"
 
@@ -49,17 +49,22 @@ volumes:
 
 outputs:
   host:
+    type: string
     value: localhost
 
   port:
+    type: integer
     value: "{{ port }}"
 
   database:
+    type: string
     value: "{{ database }}"
 
   username:
+    type: string
     value: "{{ username }}"
 
   password:
+    type: string
     value: "{{ password }}"
     secret: true

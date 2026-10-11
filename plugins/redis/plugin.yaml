@@ -1,3 +1,4 @@
+apiVersion: mass/v1
 name: redis
 version: "1.0"
 
@@ -22,9 +23,10 @@ volumes:
     target: /data
 
 outputs:
-
   host:
+    type: string
     value: localhost
 
   port:
+    type: integer
     value: "{{ port }}"

@@ -3,6 +3,7 @@ from pathlib import Path
 import yaml
 from pydantic import ValidationError
 
+from app.plugin_conformance_validator import PluginConformanceValidator
 from app.plugin_schema import PluginDefinition
 
 
@@ -11,6 +12,7 @@ class PluginRegistry:
     def __init__(self, plugins_directory: str = "plugins"):
         self.plugins_directory = Path(plugins_directory)
         self.plugins = {}
+        self.conformance_validator = PluginConformanceValidator()
 
     def load_plugins(self):
         if not self.plugins_directory.is_dir():
@@ -33,10 +35,9 @@ class PluginRegistry:
                     )
 
                 validated = PluginDefinition.model_validate(raw_plugin)
-                plugin = validated.model_dump(
-                    by_alias=True,
-                    exclude_unset=True,
-                )
+                plugin = validated.model_dump(by_alias=True, exclude_unset=True)
+
+                self.conformance_validator.validate(plugin)
 
                 if plugin["name"] != plugin_file.parent.name:
                     raise ValueError(

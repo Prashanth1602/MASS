@@ -1,3 +1,4 @@
+apiVersion: mass/v1
 name: postgres
 version: "1.0"
 
@@ -40,19 +41,25 @@ volumes:
   - name: postgres_data
     target: /var/lib/postgresql
 
+
 outputs:
   host:
+    type: string
     value: localhost
 
   port:
+    type: integer
     value: "{{ port }}"
 
   database:
+    type: string
     value: "{{ database }}"
 
   username:
+    type: string
     value: "{{ username }}"
 
   password:
+    type: string
     value: "{{ password }}"
     secret: true

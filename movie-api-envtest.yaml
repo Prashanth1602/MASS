@@ -1,0 +1,12 @@
+
+name: movie-api-envtest
+
+plugins:
+  postgres:
+    database: movies
+    username: app
+    password: ${POSTGRES_PASSWORD}
+
+  redis: {}
+
+  authentication: {}

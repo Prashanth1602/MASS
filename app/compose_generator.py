@@ -35,7 +35,7 @@ def resolve_environment_value(value: str, configuration: dict, schema: dict, plu
 
 class ComposeGenerator:
 
-    def generate( self, application_name: str, plugins: list[dict], runtime_dependencies: dict) -> str:
+    def generate( self, application_name: str, plugins: list[dict], runtime_dependencies: dict, host_port: int = 8000) -> str:
 
         services = {}
         volumes = {}
@@ -93,7 +93,7 @@ class ComposeGenerator:
 
         app_dependencies = sorted({ dependency for dependencies in runtime_dependencies.values() for dependency in dependencies})
 
-        services["app"] = self.build_application_service(app_dependencies)
+        services["app"] = self.build_application_service(app_dependencies, host_port) 
 
         return yaml.safe_dump(
             compose,
@@ -124,10 +124,12 @@ class ComposeGenerator:
         return "\n".join(lines) + "\n"
 
     
-    def build_application_service(self, dependencies: list[str]) -> dict:
+    
+    def build_application_service(self, dependencies: list[str], host_port: int = 8000,) -> dict:
+
         service = {
             "build": ".",
-            "ports": ["8000:8000"],
+            "ports": [f"{host_port}:8000"],
             "env_file": [".env"],
         }
 
@@ -135,3 +137,4 @@ class ComposeGenerator:
             service["depends_on"] = dependencies
 
         return service
+
