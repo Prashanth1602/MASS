@@ -8,7 +8,7 @@ from app.application_spec import load_application_spec
 from app.models import ApplicationConfig, BuildRequest
 from app.plugin_registry import PluginRegistry
 from app.main import build_application as build_application_request
-from app.runtime_manager import run_application, stop_application
+from app.runtime_manager import health_application, logs_application, run_application, status_application, stop_application
 
 
 def validate_application(spec_path: str) -> int:
@@ -252,9 +252,41 @@ def main() -> int:
     )
     stop_parser.add_argument("name", help="Generated application name")
 
+    status_parser = app_subparsers.add_parser(
+        "status",
+        help="Show the status of an application",
+    )
+
+    status_parser.add_argument("name", help="Generated application name")
+
+    logs_parser = app_subparsers.add_parser(
+        "logs",
+        help="Show application container logs",
+    )
+
+    logs_parser.add_argument("name", help="Generated application name")
+    logs_parser.add_argument(
+        "--follow",
+        "-f",
+        action="store_true",
+        help="Follow log output continuously",
+    )
+
+    health_parser = app_subparsers.add_parser(
+        "health",
+        help="Check application container and HTTP health",
+    )
+
+    health_parser.add_argument("name", help="Generated application name")
+    health_parser.add_argument(
+        "--port",
+        type=int,
+        default=8000,
+        help="Application host port (default: 8000)",
+    )
+
     args = parser.parse_args()
 
-    # Dispatch commands
     if args.command == "plugins":
         if args.plugins_command == "list":
             return list_plugins()
@@ -275,7 +307,18 @@ def main() -> int:
         if args.app_command == "stop":
             return stop_application(args.name)
 
+        if args.app_command == "status":
+            return status_application(args.name)
+
+        if args.app_command == "logs":
+            return logs_application(args.name, follow=args.follow)
+
+        if args.app_command == "health":
+            return health_application(args.name, port=args.port)
+
     return 0
 
 if __name__ == "__main__":
     raise SystemExit(main())
+
+

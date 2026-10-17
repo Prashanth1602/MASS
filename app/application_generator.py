@@ -45,23 +45,40 @@ COPY app ./app
 CMD ["uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8000"]
 """
 )
+        imports = []
+        registrations = []
 
-        imports = ""
         for plugin in plugins:
-            if plugin.get("type") == "code":
-                imports += f"import app.{plugin['name']}\n"
+            if plugin.get("type") != "code":
+                continue
+
+            plugin_name = plugin["name"]
+            router_name = f"{plugin_name}_router"
+
+            imports.append(
+                f"from app.{plugin_name}.router import "
+                f"router as {router_name}"
+            )
+
+            registrations.append(
+                f"app.include_router({router_name})"
+            )
+
+        imports_content = "\n".join(imports)
+        registrations_content = "\n".join(registrations)
 
         main_content = f'''from fastapi import FastAPI
-{imports}
+{imports_content}
 
 app = FastAPI(
     title="{application_name} Application"
 )
 
+{registrations_content}
+
 
 @app.get("/")
 def root():
-
     return {{
         "message": "Generated application is running"
     }}

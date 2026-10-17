@@ -1,3 +1,6 @@
+from pygments import plugin
+
+from app.code_plugin_generator import CodePluginGenerator
 from app.config_resolver import ConfigResolver
 from app.dependency_resolver import DependencyResolver
 from app.input_resolver import InputResolver
@@ -17,6 +20,7 @@ class ApplicationService:
         self.input_resolver = InputResolver()
         self.output_resolver = OutputResolver()
         self.contract_validator = PluginContractValidator()
+        self.code_plugin_generator = CodePluginGenerator()
 
     def prepare(self, request):
         selected_plugins = []
@@ -61,5 +65,9 @@ class ApplicationService:
                 dependencies,
                 resolved_plugin_map,
             )
+
+        for plugin in selected_plugins:
+            if plugin.get("type") == "code":
+                self.code_plugin_generator.validate(plugin)
 
         return selected_plugins, dependencies

@@ -17,6 +17,7 @@ from app.output_resolver import OutputResolver
 from app.plugin_contract_validator import PluginContractValidator
 from app.plugin_registry import PluginRegistry
 from app.runtime_dependency_resolver import RuntimeDependencyResolver
+from app.application_service import ApplicationService, PluginNotFoundError
 
 import logging
 
@@ -30,6 +31,8 @@ app = FastAPI(
 
 registry = PluginRegistry()
 registry.load_plugins()
+
+application_service = ApplicationService(registry)
 
 compose_generator = ComposeGenerator()
 
@@ -55,63 +58,25 @@ def root():
         "message": "MASS - Modular Application Service Stack is running"
     }
 
-
 @app.post("/build")
 def build_application(request: BuildRequest):
-
-    selected_plugins = []
-
-    for plugin_name, user_config in request.plugins.items():
-
-        plugin = registry.get(plugin_name)
-
-        if plugin is None:
-                raise HTTPException(
-                status_code=404,
-                detail=f"Plugin '{plugin_name}' not found",
+    try:
+        selected_plugins, dependencies = application_service.prepare(
+            request
         )
 
-        try:
-            resolved_config = config_resolver.resolve(plugin, user_config)
-            secret_config = config_resolver.get_secret_fields(plugin, resolved_config)
-        except ValueError as e:
-            raise HTTPException(
-            status_code=400,
-            detail=str(e),
-        ) from e
+    except PluginNotFoundError as exc:
+        raise HTTPException(
+            status_code=404,
+            detail=str(exc),
+        ) from exc
 
-        plugin_copy = plugin.copy()
-        plugin_copy["resolved_configuration"] = resolved_config
-        selected_plugins.append(plugin_copy)
-
-    try:
-        dependencies = dependency_resolver.resolve(selected_plugins)
-        plugin_contract_validator.validate(selected_plugins, dependencies)
-    except ValueError as e:
+    except ValueError as exc:
         raise HTTPException(
             status_code=400,
-            detail=str(e)
-        ) from e
+            detail=str(exc),
+        ) from exc
 
-    for plugin in selected_plugins:
-        resolved_outputs = output_resolver.resolve(plugin)
-        plugin["resolved_outputs"] = resolved_outputs
-
-    resolved_plugin_map = {
-        plugin["name"]: plugin
-        for plugin in selected_plugins
-    }
-
-    for plugin in selected_plugins:
-        resolved_inputs = input_resolver.resolve(
-        plugin,
-        dependencies,
-        resolved_plugin_map
-    )
-
-        plugin["resolved_inputs"] = resolved_inputs
-
-    
     generated_root = Path("generated")
     generated_root.mkdir(parents=True, exist_ok=True)
 
@@ -161,6 +126,11 @@ def build_application(request: BuildRequest):
             runtime_dependencies = runtime_dependency_resolver.resolve(dependencies, selected_plugins)
 
             compose_content = compose_generator.generate(application_name, selected_plugins, runtime_dependencies, host_port=request.application.host_port)
+
+            (staging_directory / "host_port").write_text(
+                f"{request.application.host_port}\n",
+                encoding="utf-8",
+            )
 
             (staging_directory / "docker-compose.yml"
             ).write_text(compose_content)

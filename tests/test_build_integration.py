@@ -328,7 +328,32 @@ def test_build_logs_internal_error_without_exposing_it(generated_output, monkeyp
     assert not generated_output.exists()
 
 
+def test_build_registers_selected_hello_router(generated_output):
+    payload = {
+        "application": {"name": TEST_APP_NAME},
+        "plugins": {
+            "hello": {"name": "MASS"},
+        },
+    }
 
+    response = client.post("/build", json=payload)
+
+    assert response.status_code == 200
+
+    main_content = (
+        generated_output / "app" / "main.py"
+    ).read_text()
+
+    router_content = (
+        generated_output / "app" / "hello" / "router.py"
+    ).read_text()
+
+    assert (
+        "from app.hello.router import router as hello_router"
+        in main_content
+    )
+    assert "app.include_router(hello_router)" in main_content
+    assert '@router.get("/")' in router_content
 
 
 

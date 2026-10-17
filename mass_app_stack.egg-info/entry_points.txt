@@ -1,0 +1,2 @@
+[console_scripts]
+mass = app.cli:main

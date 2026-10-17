@@ -1,0 +1,4 @@
+name: hello-test
+plugins:
+  hello:
+    name: MASS

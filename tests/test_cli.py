@@ -17,6 +17,7 @@ import app.cli as cli
         (["app", "build", "movie-api.yaml"], "build_application_from_spec", ("movie-api.yaml",)),
         (["app", "run", "movie-api"], "run_application", ("movie-api",)),
         (["app", "stop", "movie-api"], "stop_application", ("movie-api",)),
+        (["app", "status", "movie-api"], "status_application", ("movie-api",)),
     ],
 )
 def test_main_dispatches_commands(monkeypatch, arguments, handler_name, handler_args):
