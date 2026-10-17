@@ -1,0 +1,14 @@
+apiVersion: mass/v1
+name: greeting
+version: "1.0"
+
+type: code
+
+provides:
+  - greeting
+
+configuration:
+  message:
+    type: string
+    required: false
+    default: Hello from greeting!

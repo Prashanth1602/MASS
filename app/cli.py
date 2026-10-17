@@ -1,5 +1,6 @@
 import argparse
 import sys
+from xml.sax.expatreader import create_parser
 
 from fastapi import HTTPException
 
@@ -8,6 +9,7 @@ from app.application_spec import load_application_spec
 from app.models import ApplicationConfig, BuildRequest
 from app.plugin_registry import PluginRegistry
 from app.main import build_application as build_application_request
+from app.plugin_scaffolder import PluginScaffolder
 from app.runtime_manager import health_application, logs_application, run_application, status_application, stop_application
 
 
@@ -178,6 +180,22 @@ def inspect_plugin(plugin_name: str) -> int:
     print()
     return 0
 
+def create_plugin(plugin_name: str) -> int:
+    try:
+        path = PluginScaffolder().create(plugin_name)
+    except (ValueError, FileExistsError, OSError) as exc:
+        print(f"Error creating plugin: {exc}", file=sys.stderr)
+        return 1
+
+    print(f"Plugin '{plugin_name}' created successfully.")
+    print(f"Directory: {path}")
+    print("Next steps:")
+    print("  1. Review plugin.yaml")
+    print("  2. Customize templates/")
+    print("  3. Validate the plugin by building a test application")
+
+    return 0
+
 def main() -> int:
     parser = argparse.ArgumentParser(
         prog="mass",
@@ -285,6 +303,13 @@ def main() -> int:
         help="Application host port (default: 8000)",
     )
 
+    create_parser = plugins_subparsers.add_parser(
+        "create",
+        help="Create a new code plugin scaffold",
+    )
+
+    create_parser.add_argument("name", help="Name of the new plugin")
+
     args = parser.parse_args()
 
     if args.command == "plugins":
@@ -293,6 +318,9 @@ def main() -> int:
 
         if args.plugins_command == "inspect":
             return inspect_plugin(args.name)
+
+        if args.plugins_command == "create":
+            return create_plugin(args.name)
 
     if args.command == "app":
         if args.app_command == "validate":
