@@ -10,6 +10,8 @@ from fastapi.testclient import TestClient
 
 from app import main as app_module
 from app.main import app
+from app.plugin_registry import PluginRegistry
+from app.plugin_scaffolder import PluginScaffolder
 
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -354,6 +356,77 @@ def test_build_registers_selected_hello_router(generated_output):
     )
     assert "app.include_router(hello_router)" in main_content
     assert '@router.get("/")' in router_content
+
+
+
+def test_build_api_with_freshly_scaffolded_plugin(tmp_path, monkeypatch):
+    # Create a fresh plugin outside the project's real plugins directory.
+    plugins_directory = tmp_path / "plugins"
+    scaffolder = PluginScaffolder(plugins_directory)
+    scaffolder.create("fresh_greeting")
+
+    # Load the new plugin through the real registry.
+    test_registry = PluginRegistry(str(plugins_directory))
+    test_registry.load_plugins()
+
+    # Route the existing API service to this isolated registry.
+    monkeypatch.setattr(app_module, "registry", test_registry)
+    monkeypatch.setattr(
+        app_module,
+        "application_service",
+        app_module.ApplicationService(test_registry),
+    )
+
+    # Keep generated output isolated from the real project.
+    generated_directory = tmp_path / "generated"
+    monkeypatch.chdir(tmp_path)
+
+    payload = {
+        "application": {
+            "name": "fresh-greeting-app",
+            "host_port": 8012,
+        },
+        "plugins": {
+            "fresh_greeting": {},
+        },
+    }
+
+    response = client.post("/build", json=payload)
+
+    assert response.status_code == 200, response.text
+    assert response.json()["application"] == "fresh-greeting-app"
+
+    app_directory = (
+        generated_directory / "fresh-greeting-app" / "app"
+    )
+
+    router_file = app_directory / "fresh_greeting" / "router.py"
+    service_file = app_directory / "fresh_greeting" / "service.py"
+    main_file = app_directory / "main.py"
+
+    assert router_file.is_file()
+    assert service_file.is_file()
+    assert main_file.is_file()
+
+    main_content = main_file.read_text(encoding="utf-8")
+    assert (
+        "from app.fresh_greeting.router import "
+        "router as fresh_greeting_router"
+    ) in main_content
+    assert "app.include_router(fresh_greeting_router)" in main_content
+
+    service_content = service_file.read_text(encoding="utf-8")
+    assert "Hello from fresh_greeting!" in service_content
+    assert "{{ message }}" not in service_content
+
+    # Confirm that generated Python files have valid syntax.
+    for python_file in app_directory.rglob("*.py"):
+        compile(
+            python_file.read_text(encoding="utf-8"),
+            str(python_file),
+            "exec",
+        )
+
 
 
 

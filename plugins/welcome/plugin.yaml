@@ -1,0 +1,14 @@
+apiVersion: mass/v1
+name: welcome
+version: "1.0"
+
+type: code
+
+provides:
+  - welcome
+
+configuration:
+  message:
+    type: string
+    required: false
+    default: Hello from welcome!
