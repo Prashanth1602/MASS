@@ -7,3 +7,5 @@ generated/
 movie-api.yaml
 movie-api-port-test.yaml
 movie-api-envtest.yaml
+hello-test.yaml
+mass_app_stack.egg-info/
