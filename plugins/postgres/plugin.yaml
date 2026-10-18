@@ -63,3 +63,9 @@ outputs:
     type: string
     value: "{{ password }}"
     secret: true
+
+runtime_dependencies:
+  - "psycopg[binary]"
+  - sqlalchemy
+  - alembic
+

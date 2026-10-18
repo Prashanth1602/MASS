@@ -1,7 +1,14 @@
 from pathlib import Path
 
+from app.database_generator import DatabaseGenerator
+from app.migration_generator import MigrationGenerator
+
 
 class ApplicationGenerator:
+
+    def __init__(self):
+        self.database_generator = DatabaseGenerator()
+        self.migration_generator = MigrationGenerator()
 
     def generate(
         self,application_name: str, output_directory: Path, plugins: list[dict] ) -> list[str]:
@@ -26,6 +33,16 @@ class ApplicationGenerator:
 
         for plugin in plugins:
             packages.update(plugin.get("runtime_dependencies", []))
+
+        uses_database = any("database" in plugin.get("provides", {})
+                            for plugin in plugins
+            )
+
+        if uses_database:
+            self.database_generator.generate(output_directory)
+            self.migration_generator.generate(output_directory)
+            packages.add("sqlalchemy")
+            packages.add("alembic")
 
         requirements_file.write_text("\n".join(sorted(packages)) + "\n")
 
@@ -67,15 +84,39 @@ CMD ["uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8000"]
         imports_content = "\n".join(imports)
         registrations_content = "\n".join(registrations)
 
+        database_health_import = ""
+        database_health_endpoint = ""
+
+        uses_database = any(
+                "database" in plugin.get("provides", [])
+                for plugin in plugins
+            )
+
+        if uses_database:
+            database_health_import = """
+from sqlalchemy import text
+from app.core.database import engine
+"""
+
+        database_health_endpoint = '''
+
+@app.get("/health/database")
+def database_health():
+    with engine.connect() as connection:
+        connection.execute(text("SELECT 1"))
+
+    return {"database": "connected"}
+'''
+
         main_content = f'''from fastapi import FastAPI
 {imports_content}
+{database_health_import}
 
 app = FastAPI(
     title="{application_name} Application"
 )
-
 {registrations_content}
-
+{database_health_endpoint}
 
 @app.get("/")
 def root():

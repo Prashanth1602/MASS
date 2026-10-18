@@ -40,7 +40,7 @@ config_resolver = ConfigResolver()
 
 dependency_resolver = DependencyResolver()
 
-code_generator = CodePluginGenerator()
+code_generator = CodePluginGenerator(plugins_directory=str(registry.plugins_directory))
 
 output_resolver = OutputResolver()
 

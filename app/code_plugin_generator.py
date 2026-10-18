@@ -4,13 +4,14 @@ from app.template_renderer import TemplateRenderer
 
 class CodePluginGenerator:
 
-    def __init__(self):
+    def __init__(self, plugins_directory: str = "plugins"):
+        self.plugins_directory = Path(plugins_directory)
         self.renderer = TemplateRenderer()
 
     def generate(self, plugin: dict, output_directory: Path) -> list[str]:
         plugin_name = plugin["name"]
 
-        plugin_directory = Path("plugins") / plugin_name
+        plugin_directory = self.plugins_directory / plugin_name
         templates_directory = plugin_directory / "templates"
 
         if not templates_directory.is_dir():
@@ -90,9 +91,9 @@ class CodePluginGenerator:
      
     def validate(self, plugin: dict) -> None:
         plugin_name = plugin["name"]
-        templates_directory = (
-            Path("plugins") / plugin_name / "templates"
-        )
+
+        plugin_directory = self.plugins_directory / plugin_name
+        templates_directory = plugin_directory / "templates"
 
         if not templates_directory.is_dir():
             raise ValueError(

@@ -103,27 +103,39 @@ class ComposeGenerator:
     def generate_env_file(self, plugins: list[dict]) -> str:
         lines = []
 
-        for plugin in plugins:
+        postgres_plugin = next(
+            (
+                plugin for plugin in plugins
+                if plugin["name"] == "postgres"
+            ),
+            None,
+        )
 
-            plugin_name = plugin["name"].upper()
+        if postgres_plugin:
+            configuration = postgres_plugin.get(
+                "resolved_configuration", {}
+            )
 
-            configuration = plugin.get("resolved_configuration", {})
+            lines.extend([
+                "POSTGRES_HOST=postgres",
+                f"POSTGRES_PORT={configuration.get('port', 5432)}",
+                f"POSTGRES_DB={configuration.get('database', 'app')}",
+                f"POSTGRES_USER={configuration.get('username', 'app')}",
+            ])
 
-            schema = plugin.get("configuration", {})
-            
-            for key, value in configuration.items():
+            for plugin in plugins:
+                plugin_name = plugin["name"].upper()
+                configuration = plugin.get("resolved_configuration", {})
+                schema = plugin.get("configuration", {})
 
-                definition = schema.get(key, {})
+                for key, value in configuration.items():
+                    definition = schema.get(key, {})
 
-                if definition.get("secret", False):
-
-                    env_name = f"{plugin_name}_{key.upper()}"
-
-                    lines.append(f"{env_name}={value}")
+                    if definition.get("secret", False):
+                        env_name = f"{plugin_name}_{key.upper()}"
+                        lines.append(f"{env_name}={value}")
 
         return "\n".join(lines) + "\n"
-
-    
     
     def build_application_service(self, dependencies: list[str], host_port: int = 8000,) -> dict:
 
