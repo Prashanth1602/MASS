@@ -100,7 +100,10 @@ class ComposeGenerator:
             sort_keys=False
         )
 
+    
     def generate_env_file(self, plugins: list[dict]) -> str:
+        from urllib.parse import quote
+
         lines = []
 
         postgres_plugin = next(
@@ -116,37 +119,57 @@ class ComposeGenerator:
                 "resolved_configuration", {}
             )
 
+            database = configuration.get("database", "app")
+            username = configuration.get("username", "app")
+            password = configuration.get("password", "")
+            port = configuration.get("port", 5432)
+
             lines.extend([
                 "POSTGRES_HOST=postgres",
-                f"POSTGRES_PORT={configuration.get('port', 5432)}",
-                f"POSTGRES_DB={configuration.get('database', 'app')}",
-                f"POSTGRES_USER={configuration.get('username', 'app')}",
+                f"POSTGRES_PORT={port}",
+                f"POSTGRES_DB={database}",
+                f"POSTGRES_USER={username}",
             ])
 
             for plugin in plugins:
                 plugin_name = plugin["name"].upper()
-                configuration = plugin.get("resolved_configuration", {})
+                plugin_configuration = plugin.get(
+                    "resolved_configuration", {}
+                )
                 schema = plugin.get("configuration", {})
 
-                for key, value in configuration.items():
+                for key, value in plugin_configuration.items():
                     definition = schema.get(key, {})
 
                     if definition.get("secret", False):
                         env_name = f"{plugin_name}_{key.upper()}"
                         lines.append(f"{env_name}={value}")
 
-        return "\n".join(lines) + "\n"
+            encoded_username = quote(str(username), safe="")
+            encoded_password = quote(str(password), safe="")
+
+            lines.append(
+                "DATABASE_URL="
+                f"postgresql+psycopg://{encoded_username}:"
+                f"{encoded_password}@postgres:{port}/{database}"
+            )
+
+        return "\n".join(lines) + "\n"   
     
     def build_application_service(self, dependencies: list[str], host_port: int = 8000,) -> dict:
-
         service = {
             "build": ".",
             "ports": [f"{host_port}:8000"],
             "env_file": [".env"],
+            "volumes": [
+                "./alembic:/app/alembic",
+                "./alembic.ini:/app/alembic.ini",
+           ],
         }
 
         if dependencies:
             service["depends_on"] = dependencies
 
         return service
+
 
