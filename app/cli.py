@@ -196,6 +196,48 @@ def create_plugin(plugin_name: str) -> int:
 
     return 0
 
+
+def create_migration(application_name: str, message: str = "initial") -> int:
+    """Generate a database migration for a generated application."""
+    from pathlib import Path
+    import subprocess
+
+    application_directory = Path("generated") / application_name
+
+    if not application_directory.is_dir():
+        print(
+            f"Application '{application_name}' not found.",
+            file=sys.stderr,
+        )
+        return 1
+
+    result = subprocess.run(
+        [
+            "docker",
+            "compose",
+            "run",
+            "--rm",
+            "app",
+            "python",
+            "-m",
+            "alembic",
+            "revision",
+            "--autogenerate",
+            "-m",
+            message,
+        ],
+        cwd=application_directory,
+        check=False,
+    )
+
+    if result.returncode != 0:
+        print("Migration generation failed.", file=sys.stderr)
+        return result.returncode
+
+    print(f"Migration generated for application '{application_name}'.")
+    return 0
+
+
 def main() -> int:
     parser = argparse.ArgumentParser(
         prog="mass",
@@ -263,6 +305,14 @@ def main() -> int:
         help="Build and start a generated application",
     )
     run_parser.add_argument("name", help="Generated application name")
+
+
+    migration_parser = app_subparsers.add_parser(
+        "makemigrations",
+        help="Generate database migrations for an application",
+    )
+    migration_parser.add_argument("name",help="Generated application name",)
+    migration_parser.add_argument("--message", "-m", default="initial", help="Migration description (default: initial)",)
 
     stop_parser = app_subparsers.add_parser(
         "stop",
@@ -343,6 +393,9 @@ def main() -> int:
 
         if args.app_command == "health":
             return health_application(args.name, port=args.port)
+
+        if args.app_command == "makemigrations":
+            return create_migration(args.name, message=args.message)
 
     return 0
 

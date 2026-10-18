@@ -45,3 +45,5 @@ inputs:
 runtime_dependencies:
   - "psycopg[binary]"
   - redis
+  - "pwdlib[argon2]"
+  - PyJWT
