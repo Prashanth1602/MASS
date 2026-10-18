@@ -40,7 +40,7 @@ class ApplicationGenerator:
 
         if uses_database:
             self.database_generator.generate(output_directory)
-            self.migration_generator.generate(output_directory)
+            self.migration_generator.generate(output_directory, plugins=plugins)
             packages.add("sqlalchemy")
             packages.add("alembic")
 

@@ -237,6 +237,46 @@ def create_migration(application_name: str, message: str = "initial") -> int:
     print(f"Migration generated for application '{application_name}'.")
     return 0
 
+def migrate_application(application_name: str) -> int:
+    """Apply pending database migrations for a generated application."""
+    from pathlib import Path
+    import subprocess
+
+    application_directory = Path("generated") / application_name
+
+    if not application_directory.is_dir():
+        print(
+            f"Application '{application_name}' not found.",
+            file=sys.stderr,
+        )
+        return 1
+
+    result = subprocess.run(
+        [
+            "docker",
+            "compose",
+            "run",
+            "--rm",
+            "app",
+            "python",
+            "-m",
+            "alembic",
+            "upgrade",
+            "head",
+        ],
+        cwd=application_directory,
+        check=False,
+    )
+
+    if result.returncode != 0:
+        print("Database migration failed.", file=sys.stderr)
+        return result.returncode
+
+    print(
+        f"Database migrations applied for application '{application_name}'."
+    )
+    return 0
+
 
 def main() -> int:
     parser = argparse.ArgumentParser(
@@ -313,6 +353,15 @@ def main() -> int:
     )
     migration_parser.add_argument("name",help="Generated application name",)
     migration_parser.add_argument("--message", "-m", default="initial", help="Migration description (default: initial)",)
+
+    migrate_parser = app_subparsers.add_parser(
+        "migrate",
+        help="Apply pending database migrations for an application",
+    )
+    migrate_parser.add_argument(
+        "name",
+        help="Generated application name",
+    )
 
     stop_parser = app_subparsers.add_parser(
         "stop",
@@ -396,6 +445,9 @@ def main() -> int:
 
         if args.app_command == "makemigrations":
             return create_migration(args.name, message=args.message)
+
+        if args.app_command == "migrate":
+            return migrate_application(args.name)
 
     return 0
 

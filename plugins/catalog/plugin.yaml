@@ -1,0 +1,14 @@
+apiVersion: mass/v1
+name: catalog
+version: "1.0"
+
+type: code
+
+provides:
+  - catalog
+
+configuration:
+  message:
+    type: string
+    required: false
+    default: Hello from catalog!

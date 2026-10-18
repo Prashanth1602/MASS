@@ -1,29 +1,44 @@
-
 from pathlib import Path
 
+import json
 
 class MigrationGenerator:
     """Generate Alembic migration infrastructure for an application."""
 
-    def generate(self, output_directory: Path) -> list[str]:
+    def generate(self, output_directory: Path, plugins: list[dict] | None = None,) -> list[str]:
         alembic_directory = output_directory / "alembic"
         versions_directory = alembic_directory / "versions"
 
         versions_directory.mkdir(parents=True, exist_ok=True)
 
+        plugin_names = [
+                    plugin["name"]
+                    for plugin in (plugins or [])
+                    if plugin.get("type") == "code"
+            ]
+
         env_file = alembic_directory / "env.py"
+
+        plugin_names_literal = json.dumps(plugin_names)
+
         env_file.write_text(
-            '''import os
+            f'''import os
 
 from alembic import context
 from sqlalchemy import engine_from_config, pool
 
 from app.core.database import Base
 
-try:
-    from app.authentication import models as authentication_models
-except ImportError:
-    authentication_models = None
+# Import models from selected plugins so SQLAlchemy registers
+# their tables with Base.metadata before Alembic compares schemas.
+import importlib
+
+for plugin_name in {plugin_names_literal}:
+    try:
+        importlib.import_module(f"app.{{plugin_name}}.models")
+    except ModuleNotFoundError as exc:
+        if exc.name != f"app.{{plugin_name}}.models":
+            raise
 
 config = context.config
 target_metadata = Base.metadata
@@ -38,7 +53,7 @@ def run_migrations_offline():
         url=get_database_url(),
         target_metadata=target_metadata,
         literal_binds=True,
-        dialect_opts={"paramstyle": "named"},
+        dialect_opts={{"paramstyle": "named"}},
     )
 
     with context.begin_transaction():
