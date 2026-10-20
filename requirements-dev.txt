@@ -1,3 +1,6 @@
 -r requirements.txt
 pytest
 httpx
+jwt
+pwdlib
+PyJWT
