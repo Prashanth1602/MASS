@@ -1,7 +1,6 @@
 -r requirements.txt
 pytest
 httpx
-jwt
-pwdlib
 PyJWT
+pwdlib[argon2]
 sqlalchemy
