@@ -11,6 +11,16 @@ requires:
 provides:
   - authentication
 
+configuration:
+  jwt_secret:
+    type: string
+    required: true
+    secret: true
+
+  access_token_expire_minutes:
+    type: integer
+    required: false
+    default: 30
 
 inputs:
   database_host:

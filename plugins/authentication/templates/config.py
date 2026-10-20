@@ -8,3 +8,6 @@ DATABASE_PASSWORD = {{ input.database_password }}
 
 REDIS_HOST = {{ input.redis_host }}
 REDIS_PORT = {{ input.redis_port }}
+
+JWT_SECRET = {{ jwt_secret }}
+ACCESS_TOKEN_EXPIRE_MINUTES = {{ access_token_expire_minutes }}

@@ -38,6 +38,12 @@ class CodePluginGenerator:
             if not template_file.is_file():
                 continue
 
+            if "__pycache__" in template_file.parts:
+                continue
+
+            if template_file.suffix == ".pyc":
+                continue
+
             relative_path = template_file.relative_to(templates_directory)
             output_file = (
                 output_directory / "app" / plugin_name / relative_path
@@ -113,6 +119,12 @@ class CodePluginGenerator:
 
         for template_file in sorted(templates_directory.rglob("*")):
             if not template_file.is_file():
+                continue
+
+            if "__pycache__" in template_file.parts:
+                continue
+
+            if template_file.suffix == ".pyc":
                 continue
 
             relative_path = template_file.relative_to(templates_directory)

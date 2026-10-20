@@ -45,7 +45,9 @@ def valid_payload():
                 "password": TEST_SECRET,
             },
             "redis": {},
-            "authentication": {},
+            "authentication": {
+                    "jwt_secret": "integration-test-secret-key-at-least-32-bytes"
+                },
         },
     }
 
@@ -146,7 +148,9 @@ def test_build_rejects_provider_missing_required_output():
                 "password": "integration-test-secret",
             },
             "redis": {},
-            "authentication": {},
+            "authentication": {
+                    "jwt_secret": "integration-test-secret-key-at-least-32-bytes"
+                },
         },
     }
 
