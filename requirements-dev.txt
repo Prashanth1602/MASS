@@ -4,3 +4,4 @@ httpx
 jwt
 pwdlib
 PyJWT
+sqlalchemy
